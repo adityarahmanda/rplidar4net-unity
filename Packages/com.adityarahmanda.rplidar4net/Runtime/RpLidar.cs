@@ -11,16 +11,16 @@ using UnityEngine.Events;
 
 namespace Rahmanda.RpLidar4Net
 {
-    public class RpLidar : MonoBehaviour
+    public class RPLidar : MonoBehaviour
     {
         [Header("Connection Settings")]
-        [Tooltip("Name of the serial port connected to the RPLIDAR, for example COM4.")]
+        [Tooltip("Name of the serial port connected to the RPLidar, for example COM4.")]
         public string portName = "COM4";
-        [Tooltip("Serial baud rate. Use the value required by the specific RPLIDAR model.")]
+        [Tooltip("Serial baud rate. Use the value required by the specific RPLidar model. Supported values are 115200, 256000 460800, and 1000000.")]
         public int baudRate = 460800;
         [Tooltip("Read and write timeout in milliseconds for serial commands.")]
         public int timeout = 3000;
-        [Tooltip("Connect to the RPLIDAR automatically during Awake().")]
+        [Tooltip("Connect to the RPLidar automatically during Awake().")]
         public bool connectOnAwake = true;
 
         [Header("Device Settings")]
@@ -28,19 +28,19 @@ namespace Rahmanda.RpLidar4Net
         public ushort desiredRotationFrequency = 660;
 
         [Header("Device Info")]
-        [Tooltip("RPLIDAR model identifier reported by the device.")]
+        [Tooltip("RPLidar model identifier reported by the device.")]
         [SerializeField] private string m_modelID;
-        [Tooltip("RPLIDAR serial number reported by the device.")]
+        [Tooltip("RPLidar serial number reported by the device.")]
         [SerializeField] private string m_serialNumber;
-        [Tooltip("RPLIDAR firmware version reported by the device.")]
+        [Tooltip("RPLidar firmware version reported by the device.")]
         [SerializeField] private string m_firmwareVersion;
-        [Tooltip("RPLIDAR hardware version reported by the device.")]
+        [Tooltip("RPLidar hardware version reported by the device.")]
         [SerializeField] private string m_hardwareVersion;
-        [Tooltip("Motor control mode supported by the connected RPLIDAR: RPM, PWM, or None.")]
+        [Tooltip("Motor control mode supported by the connected RPLidar: RPM, PWM, or None.")]
         [SerializeField] private MotorControlSupport m_motorControlSupport;
-        [Tooltip("Minimum scan frequency supported by the connected RPLIDAR.")]
+        [Tooltip("Minimum scan frequency supported by the connected RPLidar.")]
         [SerializeField] private ushort m_minScanFrequency;
-        [Tooltip("Maximum scan frequency supported by the connected RPLIDAR.")]
+        [Tooltip("Maximum scan frequency supported by the connected RPLidar.")]
         [SerializeField] private ushort m_maxScanFrequency;
 
         [Header("Events")]
@@ -48,12 +48,12 @@ namespace Rahmanda.RpLidar4Net
         public UnityEvent<Point[]> onScanFrame = new UnityEvent<Point[]>();
 
         private static readonly HashSet<int> SupportedBaudRates = new HashSet<int>()
-    {
-        115200,
-        256000,
-        460800,
-        1000000
-    };
+        {
+            115200,
+            256000,
+            460800,
+            1000000
+        };
 
         private readonly ConcurrentQueue<bool> m_pendingConnectionStates = new ConcurrentQueue<bool>();
         private readonly ConcurrentQueue<Point[]> m_pendingPoints = new ConcurrentQueue<Point[]>();
@@ -103,7 +103,7 @@ namespace Rahmanda.RpLidar4Net
             ushort requestedDesiredRotationFrequency = newDesiredRotationFrequency >= 0 ? (ushort)newDesiredRotationFrequency : desiredRotationFrequency;
 
             if (!IsValidBaudRate(requestedBaudRate))
-                throw new ArgumentException($"Invalid baud rate: {requestedBaudRate}. Supported baud rates are: {string.Join(", ", SupportedBaudRates)}");
+                throw new ArgumentException($"[RPLidar] Invalid baud rate: {requestedBaudRate}. Supported baud rates are: {string.Join(", ", SupportedBaudRates)}");
 
             portName = requestedPortName;
             baudRate = requestedBaudRate;
@@ -112,8 +112,30 @@ namespace Rahmanda.RpLidar4Net
 
             Disconnect();
             m_stopRequested = false;
-            m_worker = new Thread(ReadLidar) { IsBackground = true, Name = "RP Lidar" };
+            m_worker = new Thread(ReadLidar) { IsBackground = true, Name = "RPLidar" };
             m_worker.Start();
+        }
+
+        public void Disconnect()
+        {
+            Thread worker = m_worker;
+            if (worker == null)
+            {
+                SetConnectionState(false);
+                return;
+            }
+
+            m_stopRequested = true;
+            if (worker != Thread.CurrentThread && worker.IsAlive)
+            {
+                worker.Join(2000);
+                if (worker.IsAlive)
+                    Debug.Log("[RPLidar] Worker did not stop before the timeout.");
+            }
+
+            if (!worker.IsAlive)
+                m_worker = null;
+            SetConnectionState(false);
         }
 
         private void ReadLidar()
@@ -121,30 +143,32 @@ namespace Rahmanda.RpLidar4Net
             RPLidarSerialDevice m_device = null;
             try
             {
-                m_device = new RPLidarSerialDevice(portName, baudRate, timeout);
+                Debug.Log($"[RPLidar] Connecting to port {portName} at baud rate {baudRate}.");
 
+                m_device = new RPLidarSerialDevice(portName, baudRate, timeout);
                 try
                 {
                     m_device.Connect();
                 }
                 catch (Exception e)
                 {
-                    Debug.LogError("RPLidar connection failed. Please make sure the port is available and baud rate is matched with the RP Lidar device series.");
+                    Debug.LogError("[RPLidar] Connection failed. Please make sure the port is available and baud rate is matched with the RPLidar device series.");
                     throw e;
                 }
 
                 m_device.StopMotor();
                 m_device.SetMotorSpeed(desiredRotationFrequency);
 
-                GetDeviceInfo(m_device);
+                SaveDeviceInfo(m_device);
 
                 m_device.NewScan += OnNewScan;
                 m_device.StartScan();
 
                 m_pendingConnectionStates.Enqueue(true);
 
-                Debug.Log($"RPLidar connected on port {portName} at baud rate {baudRate}");
-                Debug.Log($"Firmware Version: {m_firmwareVersion}\n" +
+                Debug.Log($"[RPLidar] Connected on port {portName} at baud rate {baudRate}.");
+                Debug.Log($"[RPLidar] Device Information:\n" +
+                    $"Firmware Version: {m_firmwareVersion}\n" +
                     $"Hardware Version: {m_hardwareVersion}\n" +
                     $"Model ID: {m_modelID}\n" +
                     $"Serial Number: {m_serialNumber}\n" +
@@ -158,9 +182,9 @@ namespace Rahmanda.RpLidar4Net
             catch (Exception e)
             {
                 if (e.Message == "RESULT_INVALID_ANS_TYPE")
-                    Debug.LogError("Error: RESULT_INVALID_ANS_TYPE. This may indicate a communication issue or an unsupported command.\n" + e);
+                    Debug.LogError("[RPLidar] Error: RESULT_INVALID_ANS_TYPE. This may indicate a communication issue or an unsupported command.\n" + e);
                 else
-                    Debug.LogError(e);
+                    Debug.LogError("[RPLidar] Error: " + e);
                 m_pendingConnectionStates.Enqueue(false);
             }
             finally
@@ -173,18 +197,35 @@ namespace Rahmanda.RpLidar4Net
                         m_device.StopScan();
                         m_device.Disconnect();
                         m_device.Dispose();
-                        Debug.Log("RP Lidar disposed.");
+                        Debug.Log("[RPLidar] Device disposed.");
                     }
                     catch (Exception e)
                     {
-                        Debug.Log("Failed to dispose RP Lidar: " + e.Message);
+                        Debug.LogError("[RPLidar] Failed to dispose device. Error: \n" + e);
                     }
+
                     m_pendingConnectionStates.Enqueue(false);
                 }
+
+                Debug.Log("[RPLidar] Disconnected.");
             }
         }
 
-        private void GetDeviceInfo(RPLidarSerialDevice m_device)
+        private void OnNewScan(object sender, NewScanEventArgs e)
+        {
+            Point[] points = e.Points.ToArray();
+            m_pendingPoints.Enqueue(points);
+        }
+
+        private void SetConnectionState(bool connected)
+        {
+            if (m_isConnected == connected)
+                return;
+            m_isConnected = connected;
+            onIsConnectedChanged.Invoke(connected);
+        }
+
+        private void SaveDeviceInfo(RPLidarSerialDevice m_device)
         {
             m_motorControlSupport = m_device.MotorControlSupport;
 
@@ -202,57 +243,6 @@ namespace Rahmanda.RpLidar4Net
 
             LidarConfigDataResponse maxRotationFrequencyResponse = m_device.GetMaxRotationFrequency();
             m_maxScanFrequency = maxRotationFrequencyResponse.MaxRotationFrequency;
-        }
-
-        public void Disconnect()
-        {
-            Thread worker = m_worker;
-            if (worker == null)
-            {
-                SetConnectionState(false);
-                return;
-            }
-
-            m_stopRequested = true;
-            if (worker != Thread.CurrentThread && worker.IsAlive)
-            {
-                worker.Join(2000);
-                if (worker.IsAlive)
-                    Debug.Log("Lidar worker did not stop before the timeout.");
-            }
-
-            if (!worker.IsAlive)
-                m_worker = null;
-            SetConnectionState(false);
-        }
-
-        private void SetConnectionState(bool connected)
-        {
-            if (m_isConnected == connected)
-                return;
-            m_isConnected = connected;
-            onIsConnectedChanged.Invoke(connected);
-        }
-
-        public bool TryGetScanPoint(int index, out Point point)
-        {
-            lock (m_pointsLock)
-            {
-                if (index < 0 || index >= m_latestPoints.Length)
-                {
-                    point = null;
-                    return false;
-                }
-
-                point = m_latestPoints[index];
-                return true;
-            }
-        }
-
-        private void OnNewScan(object sender, NewScanEventArgs e)
-        {
-            Point[] points = e.Points.ToArray();
-            m_pendingPoints.Enqueue(points);
         }
 
         private static bool IsValidBaudRate(int baudRate)

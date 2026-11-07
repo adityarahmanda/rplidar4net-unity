@@ -1,5 +1,7 @@
 {
   "dependencies": {
-    "com.unity.feature.development": "1.0.1"
+    "com.adityarahmanda.siminics-pavo": "https://github.com/adityarahmanda/siminics-pavo-csharp-unity.git?path=/unity-siminics-pavo/Packages/com.adityarahmanda.siminics-pavo",
+    "com.unity.feature.development": "1.0.1",
+    "com.unity.ugui": "1.0.0"
   }
 }
