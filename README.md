@@ -1,6 +1,10 @@
 # RPLidar4Net For Unity
 
+[![openupm](https://img.shields.io/npm/v/com.adityarahmanda.rplidar4net?label=openupm&registry_uri=https://package.openupm.com)](https://openupm.com/packages/com.adityarahmanda.rplidar4net/)
+
 [RPLidar4Net](https://github.com/aberteau/RPLidar4Net) for Unity. It allows you to connect to and process data from the RPLidar sensor.
+
+![demonstration](docs/rplidar-unity-demonstration.gif)
 
 ## Installation
 
