@@ -24,8 +24,8 @@ namespace Rahmanda.RpLidar4Net
         public bool connectOnAwake = true;
 
         [Header("Device Settings")]
-        [Tooltip("Requested motor speed. The value is interpreted as RPM when motor control is RPM, or as PWM when motor control is PWM.")]
-        public ushort desiredRotationFrequency = 660;
+        [Tooltip("Requested motor speed. The value is either interpreted as RPM or PWM depends on the device Motor Control Support. PWM value ranged from 0-1023.")]
+        public ushort desiredMotorSpeed = 660;
 
         [Header("Device Info")]
         [Tooltip("RPLidar model identifier reported by the device.")]
@@ -39,9 +39,9 @@ namespace Rahmanda.RpLidar4Net
         [Tooltip("Motor control mode supported by the connected RPLidar: RPM, PWM, or None.")]
         [SerializeField] private MotorControlSupport m_motorControlSupport;
         [Tooltip("Minimum scan frequency supported by the connected RPLidar.")]
-        [SerializeField] private ushort m_minScanFrequency;
+        [SerializeField] private ushort m_minRotationFrequency;
         [Tooltip("Maximum scan frequency supported by the connected RPLidar.")]
-        [SerializeField] private ushort m_maxScanFrequency;
+        [SerializeField] private ushort m_maxRotationFrequency;
 
         [Header("Events")]
         public UnityEvent<bool> onIsConnectedChanged = new UnityEvent<bool>();
@@ -69,8 +69,8 @@ namespace Rahmanda.RpLidar4Net
         public string FirmwareVersion => m_firmwareVersion;
         public string HardwareVersion => m_hardwareVersion;
         public MotorControlSupport MotorControlSupport => m_motorControlSupport;
-        public ushort MinScanFrequency => m_minScanFrequency;
-        public ushort MaxScanFrequency => m_maxScanFrequency;
+        public ushort MinScanFrequency => m_minRotationFrequency;
+        public ushort MaxScanFrequency => m_maxRotationFrequency;
 
         private void Awake()
         {
@@ -100,15 +100,15 @@ namespace Rahmanda.RpLidar4Net
             string requestedPortName = !string.IsNullOrEmpty(newPortName) ? newPortName : portName;
             int requestedBaudRate = newBaudRate >= 0 ? newBaudRate : baudRate;
             int requestedTimeout = newTimeout >= 0 ? newTimeout : timeout;
-            ushort requestedDesiredRotationFrequency = newDesiredRotationFrequency >= 0 ? (ushort)newDesiredRotationFrequency : desiredRotationFrequency;
+            ushort requestedDesiredMotorSpeed = newDesiredRotationFrequency >= 0 ? (ushort)newDesiredRotationFrequency : desiredMotorSpeed;
 
             if (!IsValidBaudRate(requestedBaudRate))
                 throw new ArgumentException($"[RPLidar] Invalid baud rate: {requestedBaudRate}. Supported baud rates are: {string.Join(", ", SupportedBaudRates)}");
-
+            
             portName = requestedPortName;
             baudRate = requestedBaudRate;
             timeout = requestedTimeout;
-            desiredRotationFrequency = requestedDesiredRotationFrequency;
+            desiredMotorSpeed = requestedDesiredMotorSpeed;
 
             Disconnect();
             m_stopRequested = false;
@@ -157,12 +157,12 @@ namespace Rahmanda.RpLidar4Net
                 }
 
                 m_device.StopMotor();
-                m_device.SetMotorSpeed(desiredRotationFrequency);
 
                 SaveDeviceInfo(m_device);
 
                 m_device.NewScan += OnNewScan;
                 m_device.StartScan();
+                m_device.SetMotorSpeed(desiredMotorSpeed);
 
                 m_pendingConnectionStates.Enqueue(true);
 
@@ -173,9 +173,8 @@ namespace Rahmanda.RpLidar4Net
                     $"Model ID: {m_modelID}\n" +
                     $"Serial Number: {m_serialNumber}\n" +
                     $"Motor Control Support: {m_motorControlSupport}\n" +
-                    $"Desired Rotation Freq: {desiredRotationFrequency}\n" +
-                    $"Min Rotation Frequency: {m_minScanFrequency}\n" +
-                    $"Max Rotation Frequency: {m_maxScanFrequency}");
+                    $"Min Rotation Frequency: {m_minRotationFrequency}\n" +
+                    $"Max Rotation Frequency: {m_maxRotationFrequency}");
 
                 while (!m_stopRequested) { }
             }
@@ -195,6 +194,7 @@ namespace Rahmanda.RpLidar4Net
                     {
                         m_device.NewScan -= OnNewScan;
                         m_device.StopScan();
+                        m_device.StopMotor();
                         m_device.Disconnect();
                         m_device.Dispose();
                         Debug.Log("[RPLidar] Device disposed.");
@@ -235,14 +235,11 @@ namespace Rahmanda.RpLidar4Net
             m_serialNumber = infoDataResponse.SerialNumber;
             m_hardwareVersion = infoDataResponse.HardwareVersion;
 
-            LidarConfigDataResponse desiredRotationFrequencyResponse = m_device.GetDesiredRotationFrequency();
-            desiredRotationFrequency = m_motorControlSupport == MotorControlSupport.PWM ? desiredRotationFrequencyResponse.DesiredRotationFrequencyPWM : desiredRotationFrequencyResponse.DesiredRotationFrequencyRPM;
-
             LidarConfigDataResponse minRotationFrequencyResponse = m_device.GetMinRotationFrequency();
-            m_minScanFrequency = minRotationFrequencyResponse.MinRotationFrequency;
+            m_minRotationFrequency = minRotationFrequencyResponse.MinRotationFrequency;
 
             LidarConfigDataResponse maxRotationFrequencyResponse = m_device.GetMaxRotationFrequency();
-            m_maxScanFrequency = maxRotationFrequencyResponse.MaxRotationFrequency;
+            m_maxRotationFrequency = maxRotationFrequencyResponse.MaxRotationFrequency;
         }
 
         private static bool IsValidBaudRate(int baudRate)

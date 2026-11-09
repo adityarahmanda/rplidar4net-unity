@@ -10,7 +10,7 @@ namespace Rahmanda.RpLidar4Net
         [SerializeField] private RPLidar lidar;
 
         public float scale = 1f;
-        public float rotation = -90f;
+        public float rotation = 90f;
         public float lineThickness = 1f;
         public Color lineColor = Color.green;
 
@@ -49,8 +49,7 @@ namespace Rahmanda.RpLidar4Net
 
             if (m_points == null || m_points.Length == 0) return;
 
-            Vector2 size = rectTransform.rect.size;
-            Vector2 center = new Vector2(size.x * -0.5f, size.y * -0.5f);
+            Vector2 center = new Vector2(0, 0);
             foreach (var point in m_points)
             {
                 Vector2 pointVector2 = Vector2Helper.ToVector2(center, rotation, point) * scale;

@@ -403,6 +403,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 199899659129913740, guid: 1aa991920b567e04ba49b691cb3927fc, type: 3}
+      propertyPath: baudRate
+      value: 256000
+      objectReference: {fileID: 0}
+    - target: {fileID: 199899659129913740, guid: 1aa991920b567e04ba49b691cb3927fc, type: 3}
+      propertyPath: portName
+      value: COM8
+      objectReference: {fileID: 0}
     - target: {fileID: 4426362908921868406, guid: 1aa991920b567e04ba49b691cb3927fc, type: 3}
       propertyPath: m_Name
       value: RPLidar
