@@ -20,8 +20,8 @@ namespace Rahmanda.RpLidar4Net
 
         public static Vector2 ToVector2(Vector2 origin, float rotation, Point point)
         {
-            Vector2 pointF = ToVector2(origin, rotation, point.Angle, point.Distance);
-            return pointF;
+            Vector2 vector2 = ToVector2(origin, rotation, point.Angle, point.Distance);
+            return vector2;
         }
     }
 }
