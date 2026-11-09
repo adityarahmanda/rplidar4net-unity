@@ -4,7 +4,7 @@
 
 [RPLidar4Net](https://github.com/aberteau/RPLidar4Net) for Unity. It allows you to connect to and process data from the RPLidar sensor.
 
-![demonstration](docs/rplidar-unity-demonstration.gif)
+![demonstration](docs/rplidar4net-unity-demonstration.gif)
 
 ## Installation
 
